@@ -1001,14 +1001,17 @@ static const struct rd_kafka_property rd_kafka_properties[] = {
     },
     {_RK_GLOBAL, "sasl.oauthbearer.method", _RK_C_S2I,
      _RK(sasl.oauthbearer.method),
-     "Set to \"default\" or \"oidc\" to control which login method "
+     "Set to \"default\", \"oidc\" or \"file\" to control which login method "
      "to be used. If set to \"oidc\", the following properties must also be "
-     "be specified: "
-     "`sasl.oauthbearer.client.id`, `sasl.oauthbearer.client.secret`, "
-     "and `sasl.oauthbearer.token.endpoint.url`.",
+     "specified: "
+     "`sasl.oauthbearer.client.id`, `sasl.oauthbearer.client.secret` "
+     "and `sasl.oauthbearer.token.endpoint.url`. If set to \"file\", the "
+     "following property must also be specified: "
+     "`sasl.oauthbearer.token.file`.",
      .vdef = RD_KAFKA_SASL_OAUTHBEARER_METHOD_DEFAULT,
      .s2i  = {{RD_KAFKA_SASL_OAUTHBEARER_METHOD_DEFAULT, "default"},
-             {RD_KAFKA_SASL_OAUTHBEARER_METHOD_OIDC, "oidc"}},
+             {RD_KAFKA_SASL_OAUTHBEARER_METHOD_OIDC, "oidc"},
+             {RD_KAFKA_SASL_OAUTHBEARER_METHOD_FILE, "file"}},
      _UNSUPPORTED_OIDC},
     {_RK_GLOBAL, "sasl.oauthbearer.client.id", _RK_C_STR,
      _RK(sasl.oauthbearer.client_id),
@@ -1036,6 +1039,11 @@ static const struct rd_kafka_property rd_kafka_properties[] = {
      "Comma-separated list of key=value pairs. "
      "E.g., \"supportFeatureX=true,organizationId=sales-emea\"."
      "Only used when `sasl.oauthbearer.method` is set to \"oidc\".",
+     _UNSUPPORTED_OIDC},
+    {_RK_GLOBAL, "sasl.oauthbearer.token.file", _RK_C_STR,
+     _RK(sasl.oauthbearer.token_file),
+     "OAuth/OIDC issuer token file path on disk. "
+     "Only used when `sasl.oauthbearer.method` is set to \"file\".",
      _UNSUPPORTED_OIDC},
     {_RK_GLOBAL, "sasl.oauthbearer.token.endpoint.url", _RK_C_STR,
      _RK(sasl.oauthbearer.token_endpoint_url),

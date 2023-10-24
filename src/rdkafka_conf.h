@@ -150,7 +150,8 @@ typedef enum {
 
 typedef enum {
         RD_KAFKA_SASL_OAUTHBEARER_METHOD_DEFAULT,
-        RD_KAFKA_SASL_OAUTHBEARER_METHOD_OIDC
+        RD_KAFKA_SASL_OAUTHBEARER_METHOD_OIDC,
+        RD_KAFKA_SASL_OAUTHBEARER_METHOD_FILE
 } rd_kafka_oauthbearer_method_t;
 
 typedef enum {
@@ -305,6 +306,7 @@ struct rd_kafka_conf_s {
                 struct {
                         rd_kafka_oauthbearer_method_t method;
                         char *token_endpoint_url;
+                        char *token_file;
                         char *client_id;
                         char *client_secret;
                         char *scope;

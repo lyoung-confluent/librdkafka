@@ -56,6 +56,7 @@
 #include "rdkafka_interceptor.h"
 #include "rdkafka_idempotence.h"
 #include "rdkafka_sasl_oauthbearer.h"
+#include "rdkafka_sasl_oauthbearer_file.h"
 #if WITH_OAUTHBEARER_OIDC
 #include "rdkafka_sasl_oauthbearer_oidc.h"
 #endif
@@ -2288,6 +2289,12 @@ rd_kafka_t *rd_kafka_new(rd_kafka_type_t type,
             !rk->rk_conf.sasl.oauthbearer.token_refresh_cb)
                 rd_kafka_conf_set_oauthbearer_token_refresh_cb(
                     &rk->rk_conf, rd_kafka_oauthbearer_unsecured_token);
+
+        if (rk->rk_conf.sasl.oauthbearer.method ==
+                RD_KAFKA_SASL_OAUTHBEARER_METHOD_FILE &&
+            !rk->rk_conf.sasl.oauthbearer.token_refresh_cb)
+                rd_kafka_conf_set_oauthbearer_token_refresh_cb(
+                    &rk->rk_conf, rd_kafka_file_token_refresh_cb);
 
         if (rk->rk_conf.sasl.oauthbearer.token_refresh_cb &&
             rk->rk_conf.sasl.oauthbearer.method !=
