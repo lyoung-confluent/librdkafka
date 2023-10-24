@@ -32,4 +32,6 @@ void rd_kafka_file_token_refresh_cb(rd_kafka_t *rk,
                                     const char *oauthbearer_config,
                                     void *opaque);
 
+int unittest_sasl_oauthbearer_file(void);
+
 #endif /* _RDKAFKA_SASL_OAUTHBEARER_FILE_H_ */
