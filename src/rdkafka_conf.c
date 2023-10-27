@@ -1039,7 +1039,11 @@ static const struct rd_kafka_property rd_kafka_properties[] = {
      _UNSUPPORTED_OIDC},
     {_RK_GLOBAL, "sasl.oauthbearer.token.endpoint.url", _RK_C_STR,
      _RK(sasl.oauthbearer.token_endpoint_url),
-     "OAuth/OIDC issuer token endpoint HTTP(S) URI used to retrieve token. "
+     "The URL for the OAuth/OIDC identity provider. If the URL is "
+     "HTTP(S)-based, it is the issuer's token endpoint URL where requests "
+     "are made to retrieve the access token. If the URL is file-based, it "
+     "specifies a file/path containing an access token (in JWT serialized "
+     "form) issued by the OAuth/OIDC identity provider. "
      "Only used when `sasl.oauthbearer.method` is set to \"oidc\".",
      _UNSUPPORTED_OIDC},
 

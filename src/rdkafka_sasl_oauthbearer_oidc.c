@@ -217,50 +217,83 @@ static void rd_kafka_oidc_build_post_fields(const char *scope,
         }
 }
 
+/**
+ * @brief Reads a file from disk into a char buffer.
+ */
+void rd_kafka_oidc_token_file_read(rd_kafka_t *rk, char *jwt_token, const char *token_url) {
+        FILE *f = fopen(token_url, "r");
+        if (f == NULL) {
+                rd_kafka_log(rk, LOG_ERR, "FILE",
+                        "Failed to open OAUTHBEARER "
+                        "token file \"%s\": %s",
+                        token_url,
+                        rd_strerror(errno));
+                rd_kafka_oauthbearer_set_token_failure(rk, rd_strerror(errno));
+                return;
+        }
+        if (fseek(f, 0L, SEEK_END) == -1) {
+                fclose(f);
+                rd_kafka_log(rk, LOG_ERR, "FILE",
+                        "Failed to seek OAUTHBEARER "
+                        "token file \"%s\": %s",
+                        token_url,
+                        rd_strerror(errno));
+                rd_kafka_oauthbearer_set_token_failure(rk, rd_strerror(errno));
+                return;
+        }
+        long fsize = ftell(f);
+        if (fseek(f, 0L, SEEK_SET) == -1) {
+                fclose(f);
+                rd_kafka_log(rk, LOG_ERR, "FILE",
+                        "Failed to seek OAUTHBEARER "
+                        "token file \"%s\": %s",
+                        token_url,
+                        rd_strerror(errno));
+                rd_kafka_oauthbearer_set_token_failure(rk, rd_strerror(errno));
+                return;
+        }
+        jwt_token = rd_malloc(fsize + 1);
+        jwt_token[fsize] = '\0';
+        if (fread(jwt_token, fsize, 1, f) != fsize) {
+                fclose(f);
+                rd_kafka_log(rk, LOG_ERR, "FILE",
+                        "Failed to read OAUTHBEARER "
+                        "token file \"%s\": %s",
+                        token_url,
+                        rd_strerror(errno));
+                rd_kafka_oauthbearer_set_token_failure(rk, rd_strerror(errno));
+                return;
+        }
+        if (fclose(f) != 0) {
+                rd_kafka_log(rk, LOG_ERR, "FILE",
+                        "Failed to close OAUTHBEARER "
+                        "token file \"%s\": %s",
+                        token_url,
+                        rd_strerror(errno));
+                rd_kafka_oauthbearer_set_token_failure(rk, rd_strerror(errno));
+                return;
+        }
+}
+
 
 /**
- * @brief Implementation of Oauth/OIDC token refresh callback function,
- *        will receive the JSON response after HTTP call to token provider,
- *        then extract the jwt from the JSON response, and forward it to
- *        the broker.
+ * @brief Fetches a JWT from a HTTP(S) token endpoint.
  */
-void rd_kafka_oidc_token_refresh_cb(rd_kafka_t *rk,
-                                    const char *oauthbearer_config,
-                                    void *opaque) {
+void rd_kafka_oidc_token_http_fetch(rd_kafka_t *rk, char *jwt_token, const char *token_url) {
         const int timeout_s = 20;
         const int retry     = 4;
         const int retry_ms  = 5 * 1000;
 
-        double exp;
-
         cJSON *json     = NULL;
-        cJSON *payloads = NULL;
-        cJSON *parsed_token, *jwt_exp, *jwt_sub;
+        cJSON *parsed_token;
 
         rd_http_error_t *herr;
 
-        char *jwt_token;
         char *post_fields;
-        char *decoded_payloads = NULL;
-
-        struct curl_slist *headers = NULL;
-
-        const char *token_url;
-        const char *sub;
-        const char *errstr;
 
         size_t post_fields_size;
-        size_t extension_cnt;
-        size_t extension_key_value_cnt = 0;
 
-        char set_token_errstr[512];
-        char decode_payload_errstr[512];
-
-        char **extensions          = NULL;
-        char **extension_key_value = NULL;
-
-        if (rd_kafka_terminating(rk))
-                return;
+        struct curl_slist *headers = NULL;
 
         rd_kafka_oidc_build_headers(rk->rk_conf.sasl.oauthbearer.client_id,
                                     rk->rk_conf.sasl.oauthbearer.client_secret,
@@ -302,6 +335,57 @@ void rd_kafka_oidc_token_refresh_cb(rd_kafka_t *rk,
                     rk,
                     "Expected JSON "
                     "response as a value string");
+                goto done;
+        }
+
+done:
+        RD_IF_FREE(post_fields, rd_free);
+        RD_IF_FREE(json, cJSON_Delete);
+        RD_IF_FREE(headers, curl_slist_free_all);
+}
+
+/**
+ * @brief Implementation of Oauth/OIDC token refresh callback function,
+ *        will receive the JSON response after HTTP call to token provider,
+ *        then extract the jwt from the JSON response, and forward it to
+ *        the broker.
+ */
+void rd_kafka_oidc_token_refresh_cb(rd_kafka_t *rk,
+                                    const char *oauthbearer_config,
+                                    void *opaque) {
+
+        if (rd_kafka_terminating(rk))
+                return;
+
+        double exp;
+
+        char *jwt_token = NULL;
+        char *decoded_payloads = NULL;
+
+        cJSON *payloads = NULL;
+        cJSON *parsed_token, *jwt_exp, *jwt_sub;
+
+        const char *token_url;
+        const char *sub;
+        const char *errstr;
+
+        size_t extension_cnt;
+        size_t extension_key_value_cnt = 0;
+
+        char set_token_errstr[512];
+        char decode_payload_errstr[512];
+
+        char **extensions          = NULL;
+        char **extension_key_value = NULL;
+
+        token_url = rk->rk_conf.sasl.oauthbearer.token_endpoint_url;
+        if (strncmp(token_url, "file://", strlen("file://")) == 0) {
+                token_url += strlen("file://");
+                rd_kafka_oidc_token_file_read(rk, jwt_token, token_url);
+        } else {
+                rd_kafka_oidc_token_http_fetch(rk, jwt_token, token_url);
+        }
+        if (jwt_token == NULL) {
                 goto done;
         }
 
@@ -377,9 +461,6 @@ void rd_kafka_oidc_token_refresh_cb(rd_kafka_t *rk,
 
 done:
         RD_IF_FREE(decoded_payloads, rd_free);
-        RD_IF_FREE(post_fields, rd_free);
-        RD_IF_FREE(json, cJSON_Delete);
-        RD_IF_FREE(headers, curl_slist_free_all);
         RD_IF_FREE(extensions, rd_free);
         RD_IF_FREE(extension_key_value, rd_free);
         RD_IF_FREE(payloads, cJSON_Delete);
